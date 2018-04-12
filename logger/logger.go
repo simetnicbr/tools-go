@@ -64,21 +64,21 @@ func (l logWrapper) SetDepth(d int) {
 }
 
 func (l logWrapper) Warning(msg ...interface{}) {
-	var m map[string]interface{}
+	m := make(map[string]interface{})
 	m["file"] = l.file()
-	l.Logger.WithFields(m).Warning(msg)
+	l.Logger.WithFields(m).Warning(msg...)
 }
 
 func (l logWrapper) Info(msg ...interface{}) {
-	var m map[string]interface{}
+	m := make(map[string]interface{})
 	m["file"] = l.file()
-	l.Logger.WithFields(m).Info(msg)
+	l.Logger.WithFields(m).Info(msg...)
 }
 
 func (l logWrapper) Debug(msg ...interface{}) {
-	var m map[string]interface{}
+	m := make(map[string]interface{})
 	m["file"] = l.file()
-	l.Logger.WithFields(m).Debug(msg)
+	l.Logger.WithFields(m).Debug(msg...)
 }
 
 func (l logWrapper) Warningm(m map[string]interface{}, msg ...interface{}) {
@@ -97,19 +97,19 @@ func (l logWrapper) Debugm(m map[string]interface{}, msg ...interface{}) {
 }
 
 func (l logWrapper) Warningf(f string, msg ...interface{}) {
-	var m map[string]interface{}
+	m := make(map[string]interface{})
 	m["file"] = l.file()
 	l.Logger.WithFields(m).Warning(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) Infof(f string, msg ...interface{}) {
-	var m map[string]interface{}
+	m := make(map[string]interface{})
 	m["file"] = l.file()
 	l.Logger.WithFields(m).Info(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) Debugf(f string, msg ...interface{}) {
-	var m map[string]interface{}
+	m := make(map[string]interface{})
 	m["file"] = l.file()
 	l.Logger.WithFields(m).Debugf(fmt.Sprintf(f, msg...))
 }
