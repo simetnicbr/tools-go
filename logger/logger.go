@@ -19,26 +19,34 @@ const (
 type Logger interface {
 	SetDepth(d int)
 
-	Warning(m ...interface{})
-	Info(m ...interface{})
-	Debug(m ...interface{})
+	AddFields(f Fields)
 
-	Warningm(map[string]interface{}, ...interface{})
-	Infom(map[string]interface{}, ...interface{})
-	Debugm(map[string]interface{}, ...interface{})
+	Fatal(s string, m ...interface{})
+	Warning(s string, m ...interface{})
+	Info(s string, m ...interface{})
+	Debug(s string, m ...interface{})
+}
 
-	Warningf(f string, m ...interface{})
-	Infof(f string, m ...interface{})
-	Debugf(f string, m ...interface{})
+// Fields is an alias for logrus.Fields
+type Fields logrus.Fields
+
+func New() Logger {
+	return newLogger(make(map[string]interface{}))
+}
+
+func WithFields(fields Fields) Logger {
+	return newLogger(fields)
 }
 
 // New creates a new instance of log that implements Logger Interface
-func New() Logger {
+func newLogger(f Fields) *logWrapper {
 	log := logrus.New()
 	log.Formatter = &logrus.JSONFormatter{}
 
+	// default log level -> INFO
 	level := logrus.InfoLevel
 
+	// DEBUG or INFO
 	logLevel := os.Getenv(LEVEL)
 	if len(logLevel) > 0 && strings.EqualFold(logLevel, DEBUG) {
 		level = logrus.DebugLevel
@@ -47,71 +55,67 @@ func New() Logger {
 	log.SetLevel(level)
 
 	l := logWrapper{
-		Logger: log,
-		Depth:  2,
+		Logger:  log,
+		Depth:   2,
+		Context: f,
 	}
 
 	return &l
 }
 
 type logWrapper struct {
-	Logger *logrus.Logger
-	Depth  int
+	Logger  *logrus.Logger
+	Depth   int
+	Context Fields
 }
 
+// Set the function Depth
 func (l logWrapper) SetDepth(d int) {
 	l.Depth = d
 }
 
-func (l logWrapper) Warning(msg ...interface{}) {
-	m := make(map[string]interface{})
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Warning(msg...)
+// AddFields add fields to logger context
+func (l logWrapper) AddFields(f Fields) {
+	for k, v := range f {
+		l.Context[k] = v
+	}
 }
 
-func (l logWrapper) Info(msg ...interface{}) {
-	m := make(map[string]interface{})
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Info(msg...)
+func (l logWrapper) remove(key string) {
+	delete(l.Context, key)
 }
 
-func (l logWrapper) Debug(msg ...interface{}) {
-	m := make(map[string]interface{})
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Debug(msg...)
+// Log funcs
+func (l logWrapper) Fatal(f string, msg ...interface{}) {
+	l.AddFields(Fields{
+		"file": l.file(),
+	})
+	l.Logger.WithFields((logrus.Fields(l.Context))).Fatal(fmt.Sprintf(f, msg...))
+	l.remove("file")
 }
 
-func (l logWrapper) Warningm(m map[string]interface{}, msg ...interface{}) {
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Warning(msg...)
+func (l logWrapper) Warning(f string, msg ...interface{}) {
+	l.AddFields(Fields{
+		"file": l.file(),
+	})
+	l.Logger.WithFields((logrus.Fields(l.Context))).Warning(fmt.Sprintf(f, msg...))
+	l.remove("file")
 }
 
-func (l logWrapper) Infom(m map[string]interface{}, msg ...interface{}) {
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Info(msg...)
+func (l logWrapper) Info(f string, msg ...interface{}) {
+	l.AddFields(Fields{
+		"file": l.file(),
+	})
+	l.Logger.WithFields((logrus.Fields(l.Context))).Info(fmt.Sprintf(f, msg...))
+	l.remove("file")
 }
 
-func (l logWrapper) Debugm(m map[string]interface{}, msg ...interface{}) {
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Debug(msg...)
-}
-
-func (l logWrapper) Warningf(f string, msg ...interface{}) {
-	m := make(map[string]interface{})
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Warning(fmt.Sprintf(f, msg...))
-}
-
-func (l logWrapper) Infof(f string, msg ...interface{}) {
-	m := make(map[string]interface{})
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Info(fmt.Sprintf(f, msg...))
-}
-
-func (l logWrapper) Debugf(f string, msg ...interface{}) {
-	m := make(map[string]interface{})
-	m["file"] = l.file()
-	l.Logger.WithFields(m).Debugf(fmt.Sprintf(f, msg...))
+func (l logWrapper) Debug(f string, msg ...interface{}) {
+	l.AddFields(Fields{
+		"file": l.file(),
+	})
+	l.Logger.WithFields((logrus.Fields(l.Context))).Debug(fmt.Sprintf(f, msg...))
+	l.remove("file")
 }
 
 func (l logWrapper) file() string {

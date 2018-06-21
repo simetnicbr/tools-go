@@ -4,40 +4,30 @@ import "fmt"
 
 type MockLogger struct {
 	MockMsg func(m ...interface{})
+	Depth   int
+	Context Fields
 }
 
-func (l MockLogger) Warning(m ...interface{}) {
-	l.MockMsg(m...)
+func (l MockLogger) SetDepth(d int) {
+	l.Depth = d
 }
 
-func (l MockLogger) Info(m ...interface{}) {
-	l.MockMsg(m...)
+func (l MockLogger) AddContext(f Fields) {
+	l.Context = f
 }
 
-func (l MockLogger) Debug(m ...interface{}) {
-	l.MockMsg(m...)
-}
-
-func (l MockLogger) Warningm(m map[string]interface{}) {
-
-}
-
-func (l MockLogger) Infom(m map[string]interface{}) {
-
-}
-
-func (l MockLogger) Debugm(m map[string]interface{}) {
-
-}
-
-func (l MockLogger) Warningf(f string, m ...interface{}) {
+func (l MockLogger) Fatal(f string, m ...interface{}) {
 	l.MockMsg(fmt.Sprintf(f, m...))
 }
 
-func (l MockLogger) Infof(f string, m ...interface{}) {
+func (l MockLogger) Warning(f string, m ...interface{}) {
 	l.MockMsg(fmt.Sprintf(f, m...))
 }
 
-func (l MockLogger) Debugf(f string, m ...interface{}) {
+func (l MockLogger) Info(f string, m ...interface{}) {
+	l.MockMsg(fmt.Sprintf(f, m...))
+}
+
+func (l MockLogger) Debug(f string, m ...interface{}) {
 	l.MockMsg(fmt.Sprintf(f, m...))
 }
