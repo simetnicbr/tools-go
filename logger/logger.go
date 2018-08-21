@@ -2,17 +2,10 @@ package logger
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
 	logrus "github.com/sirupsen/logrus"
-)
-
-// logger constants
-const (
-	LEVEL string = "SIMET_LOG_LEVEL"
-	DEBUG string = "debug"
 )
 
 // Logger represents the log interface used
@@ -30,26 +23,29 @@ type Logger interface {
 // Fields is an alias for logrus.Fields
 type Fields logrus.Fields
 
-func New() Logger {
-	return newLogger(make(map[string]interface{}))
+func New(level string) Logger {
+	return newLogger(level, make(map[string]interface{}))
 }
 
-func WithFields(fields Fields) Logger {
-	return newLogger(fields)
+func WithFields(level string, fields Fields) Logger {
+	return newLogger(level, fields)
 }
 
 // New creates a new instance of log that implements Logger Interface
-func newLogger(f Fields) *logWrapper {
+func newLogger(lvl string, f Fields) *logWrapper {
 	log := logrus.New()
 	log.Formatter = &logrus.JSONFormatter{}
 
 	// default log level -> INFO
 	level := logrus.InfoLevel
 
-	// DEBUG or INFO
-	logLevel := os.Getenv(LEVEL)
-	if len(logLevel) > 0 && strings.EqualFold(logLevel, DEBUG) {
+	switch lvl {
+	case "debug":
 		level = logrus.DebugLevel
+	case "warning":
+		level = logrus.WarnLevel
+	case "info":
+		level = logrus.InfoLevel
 	}
 
 	log.SetLevel(level)
