@@ -10,7 +10,7 @@ import (
 
 const (
 	JsonFormatter = "json"
-	TextFormatter = "Text"
+	TextFormatter = "text"
 )
 
 // Logger represents the log interface used
@@ -78,7 +78,7 @@ func (l logWrapper) SetDepth(d int) {
 }
 
 func (l logWrapper) SetFormatter(fomatter string) {
-	switch fomatter {
+	switch strings.ToLower(fomatter) {
 	case TextFormatter:
 		l.Logger.Formatter = &logrus.TextFormatter{}
 	default:
