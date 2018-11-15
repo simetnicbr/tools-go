@@ -12,7 +12,7 @@ func (l MockLogger) SetDepth(d int) {
 	l.Depth = d
 }
 
-func (l MockLogger) AddContext(f Fields) {
+func (l MockLogger) AddFields(f Fields) {
 	l.Context = f
 }
 
