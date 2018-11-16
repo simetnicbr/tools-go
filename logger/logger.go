@@ -2,22 +2,21 @@ package logger
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
 	logrus "github.com/sirupsen/logrus"
 )
 
-// logger constants
 const (
-	LEVEL string = "SIMET_LOG_LEVEL"
-	DEBUG string = "debug"
+	JsonFormatter = "json"
+	TextFormatter = "text"
 )
 
 // Logger represents the log interface used
 type Logger interface {
 	SetDepth(d int)
+	SetFormatter(string)
 
 	AddFields(f Fields)
 
@@ -25,31 +24,35 @@ type Logger interface {
 	Warning(s string, m ...interface{})
 	Info(s string, m ...interface{})
 	Debug(s string, m ...interface{})
+	Error(s string, m ...interface{})
 }
 
 // Fields is an alias for logrus.Fields
 type Fields logrus.Fields
 
-func New() Logger {
-	return newLogger(make(map[string]interface{}))
+func New(level string) Logger {
+	return newLogger(level, make(map[string]interface{}))
 }
 
-func WithFields(fields Fields) Logger {
-	return newLogger(fields)
+func WithFields(level string, fields Fields) Logger {
+	return newLogger(level, fields)
 }
 
 // New creates a new instance of log that implements Logger Interface
-func newLogger(f Fields) *logWrapper {
+func newLogger(lvl string, f Fields) *logWrapper {
 	log := logrus.New()
 	log.Formatter = &logrus.JSONFormatter{}
 
 	// default log level -> INFO
 	level := logrus.InfoLevel
 
-	// DEBUG or INFO
-	logLevel := os.Getenv(LEVEL)
-	if len(logLevel) > 0 && strings.EqualFold(logLevel, DEBUG) {
+	switch lvl {
+	case "debug":
 		level = logrus.DebugLevel
+	case "warning":
+		level = logrus.WarnLevel
+	case "info":
+		level = logrus.InfoLevel
 	}
 
 	log.SetLevel(level)
@@ -72,6 +75,15 @@ type logWrapper struct {
 // Set the function Depth
 func (l logWrapper) SetDepth(d int) {
 	l.Depth = d
+}
+
+func (l logWrapper) SetFormatter(fomatter string) {
+	switch strings.ToLower(fomatter) {
+	case TextFormatter:
+		l.Logger.Formatter = &logrus.TextFormatter{}
+	default:
+		l.Logger.Formatter = &logrus.JSONFormatter{}
+	}
 }
 
 // AddFields add fields to logger context
@@ -115,6 +127,14 @@ func (l logWrapper) Debug(f string, msg ...interface{}) {
 		"file": l.file(),
 	})
 	l.Logger.WithFields((logrus.Fields(l.Context))).Debug(fmt.Sprintf(f, msg...))
+	l.remove("file")
+}
+
+func (l logWrapper) Error(f string, msg ...interface{}) {
+	l.AddFields(Fields{
+		"file": l.file(),
+	})
+	l.Logger.WithFields((logrus.Fields(l.Context))).Error(fmt.Sprintf(f, msg...))
 	l.remove("file")
 }
 
