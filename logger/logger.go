@@ -1,9 +1,17 @@
+// Package logger implements a wrapper arount logrus.
+// It mainly enriches logs with a field 'file', indicating the source code line where
+// the logger function was called.
+//
+// Instance of the logger may be used concurrently from multiple goroutines. All access
+// to shared data is synconrized. Shared data that is copied before passing on to logrus
+// functions.
 package logger
 
 import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -58,18 +66,22 @@ func newLogger(lvl string, f Fields) *logWrapper {
 	log.SetLevel(level)
 
 	l := logWrapper{
-		Logger:  log,
-		Depth:   2,
-		Context: f,
+		Level:        level,
+		Logger:       log,
+		Depth:        2,
+		Context:      f,
+		ContextMutex: &sync.RWMutex{},
 	}
 
 	return &l
 }
 
 type logWrapper struct {
-	Logger  *logrus.Logger
-	Depth   int
-	Context Fields
+	Level        logrus.Level
+	Logger       *logrus.Logger
+	Depth        int
+	Context      Fields
+	ContextMutex *sync.RWMutex
 }
 
 // Set the function Depth
@@ -87,55 +99,72 @@ func (l logWrapper) SetFormatter(fomatter string) {
 }
 
 // AddFields add fields to logger context
+// The function is threadsafe
 func (l logWrapper) AddFields(f Fields) {
+	l.ContextMutex.Lock()
+	defer l.ContextMutex.Unlock()
 	for k, v := range f {
 		l.Context[k] = v
 	}
 }
 
-func (l logWrapper) remove(key string) {
-	delete(l.Context, key)
-}
-
-// Log funcs
+// Log functions
+//
+// All log functions are safe for concurrent invocation on multiple goroutines.
+// Log functions do not operate on shared data. Instead they create a local copy of the
+// logger's shared data for each invoation. Besides mutating only this local copy,
+// it is also passed to logrus when delegating the logging. This way we are sure that
+// logrus will never perform a concurrent read of our shared data.
+// Note that our shared data may be mutated at any point in time as this package exposes
+// a public function AddFields(). While function AddFields() mutation of the logger's
+// shared data is protected, this is not enough, as logrus may attempt concurrent read attempt.
+//
+// Our log functions are a bit more expensive then the original logrus functions,
+// due to synconization and copy effort. To reduce the overhead we step out of log functions
+// as early as possible, when the logger's log level is less verbose then the invoced log function.
 func (l logWrapper) Fatal(f string, msg ...interface{}) {
-	l.AddFields(Fields{
-		"file": l.file(),
-	})
-	l.Logger.WithFields((logrus.Fields(l.Context))).Fatal(fmt.Sprintf(f, msg...))
-	l.remove("file")
+	if l.Level < logrus.FatalLevel {
+		return
+	}
+	fields := l.getThreadsafeCopyOfFields()
+	fields["file"] = l.file()
+	l.Logger.WithFields(fields).Fatal(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) Warning(f string, msg ...interface{}) {
-	l.AddFields(Fields{
-		"file": l.file(),
-	})
-	l.Logger.WithFields((logrus.Fields(l.Context))).Warning(fmt.Sprintf(f, msg...))
-	l.remove("file")
+	if l.Level < logrus.WarnLevel {
+		return
+	}
+	fields := l.getThreadsafeCopyOfFields()
+	fields["file"] = l.file()
+	l.Logger.WithFields(fields).Warning(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) Info(f string, msg ...interface{}) {
-	l.AddFields(Fields{
-		"file": l.file(),
-	})
-	l.Logger.WithFields((logrus.Fields(l.Context))).Info(fmt.Sprintf(f, msg...))
-	l.remove("file")
+	if l.Level < logrus.InfoLevel {
+		return
+	}
+	fields := l.getThreadsafeCopyOfFields()
+	fields["file"] = l.file()
+	l.Logger.WithFields(fields).Info(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) Debug(f string, msg ...interface{}) {
-	l.AddFields(Fields{
-		"file": l.file(),
-	})
-	l.Logger.WithFields((logrus.Fields(l.Context))).Debug(fmt.Sprintf(f, msg...))
-	l.remove("file")
+	if l.Level < logrus.DebugLevel {
+		return
+	}
+	fields := l.getThreadsafeCopyOfFields()
+	fields["file"] = l.file()
+	l.Logger.WithFields(fields).Debug(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) Error(f string, msg ...interface{}) {
-	l.AddFields(Fields{
-		"file": l.file(),
-	})
-	l.Logger.WithFields((logrus.Fields(l.Context))).Error(fmt.Sprintf(f, msg...))
-	l.remove("file")
+	if l.Level < logrus.ErrorLevel {
+		return
+	}
+	fields := l.getThreadsafeCopyOfFields()
+	fields["file"] = l.file()
+	l.Logger.WithFields(fields).Error(fmt.Sprintf(f, msg...))
 }
 
 func (l logWrapper) file() string {
@@ -148,4 +177,17 @@ func (l logWrapper) file() string {
 	}
 
 	return fmt.Sprintf("[%v - %v]", file, line)
+}
+
+// create a complete copy of the logger's field map; the copy process is syncronized;
+// this function is intended to be used when passing the field map to third party code
+// (logrus) where we do not control and syncronize access to our data structures;
+func (l logWrapper) getThreadsafeCopyOfFields() logrus.Fields {
+	copiedFields := make(Fields)
+	l.ContextMutex.RLock()
+	defer l.ContextMutex.RUnlock()
+	for k, v := range l.Context {
+		copiedFields[k] = v
+	}
+	return logrus.Fields(copiedFields)
 }
