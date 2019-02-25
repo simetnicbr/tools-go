@@ -66,10 +66,11 @@ func newLogger(lvl string, f Fields) *logWrapper {
 	log.SetLevel(level)
 
 	l := logWrapper{
-		Level:   level,
-		Logger:  log,
-		Depth:   2,
-		Context: f,
+		Level:        level,
+		Logger:       log,
+		Depth:        2,
+		Context:      f,
+		ContextMutex: &sync.RWMutex{},
 	}
 
 	return &l
