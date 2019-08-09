@@ -49,7 +49,7 @@ func WithFields(level string, fields Fields) Logger {
 // New creates a new instance of log that implements Logger Interface
 func newLogger(lvl string, f Fields) *logWrapper {
 	log := logrus.New()
-	log.Formatter = &logrus.JSONFormatter{}
+	log.Formatter = &logrus.JSONFormatter{TimestampFormat:"2006-01-02T15:04:05.999999Z07:00"}
 
 	// default log level -> INFO
 	level := logrus.InfoLevel
