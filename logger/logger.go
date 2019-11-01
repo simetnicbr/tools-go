@@ -61,6 +61,8 @@ func newLogger(lvl string, f Fields) *logWrapper {
 		level = logrus.WarnLevel
 	case "info":
 		level = logrus.InfoLevel
+	case "error":
+		level = logrus.ErrorLevel
 	}
 
 	log.SetLevel(level)
